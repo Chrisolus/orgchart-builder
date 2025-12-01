@@ -1,0 +1,145 @@
+ORG CHART BUILDER 
+-----------------
+    - User login
+
+    Roles Page:
+    - The user should be able to create, edit and delete the roles and it's rank (or) id
+        Eg:  
+            Role {
+                r_id: 1
+                role: CEO
+            }
+
+    Org Chart Page:
+        - The user should be able to create, edit and delete an employee and their roles 
+        Eg: 
+           Employee {
+                        e_id: 001
+                        name: John Doe
+                        role: 1 --> Foreing key linked to Roles table
+                        manager: 1 --> Foreign key linked to Employee record
+                    }
+    - Depending on the rank of the role, org chart should be built
+
+Schema:
+    
+    - User Schema is used for logging in using JWT
+    Postgres 'User' Schema {
+        u_id uint PRIMARY & UNIQUE 
+        username string 
+        email string
+        password string -> hashed password 
+    }
+
+    - Role schema holds the roles defined by the user
+    - Postgres 'Role' Schema {
+        r_id uint PRIMARY & UNIQUE
+        role string
+    }
+
+    - Employee schema holds the data about the employees
+    -Postgres 'Employee' Schema {
+        e_id uint PRIMARY & UNIQUE
+        first_name string 
+        last_name string 
+        role_id --Reference to a role
+        manager_id --reference to another employee
+    }
+
+EXAMPLE: 
+ROLE
+| r_id | role      |
+| ---- | --------- |
+| 1    | CEO       |
+| 2    | Manager   |
+| 3    | Team Lead |
+| 4    | Developer |
+
+EMPLOYEE
+| e_id | first_name | last_name | role_id | manager_id |
+| ---- | ---------- | --------- | ------- | ---------- |
+| 1    | John       | Doe       | 1       | NULL       |
+| 2    | Priya      | Nair      | 2       | 1          |
+| 3    | Rahul      | Mehta     | 3       | 2          |
+| 4    | Meena      | Iyer      | 4       | 3          |
+| 5    | David      | Paul      | 4       | 3          |
+
+Endpoint: /api/employees & /api/roles
+
+GIN ,GORM & Postgres: 
+  CRUD - CREATE READ UPDATE DELETE for roles and employee
+  To fetch nested JSON value, use DB.Preload("Role").Find(&employee, id)
+
+GIN - ScyllaDB :
+  User register/login 
+  Validate JWT and establish WebSocket connection 
+  WS connection data stored in Scylla DB 
+  Messages are stored 
+  Fetch messages using conversation key
+
+FOR CHAT-WEBSOCKET 
+-------------------
+
+CONNECTION 
+  id UUID PK
+  client_id INT
+  is_active BOOL
+  connected_at TIMESTAMP
+  disconnected_at TIMESTAMP
+
+MESSAGE
+  id UUID PK
+  conversation_key TEXT NOT NULL 
+  sender_id INT NOT NULL
+  receiver_id INT NOT NULL
+  content TEXT
+  sent_at TIMESTAMP
+  read_at TIMESTAMP
+  INDEX (conversation_key, sent_at)
+
+The Hub
+---------
+CLIENT 
+  ID      uint
+	ConnID  gocql.UUID
+	Conn    *websocket.Conn
+	Receive chan []byte
+	Hub     *Hub
+
+HUB 
+  Clients map[uint]map[gocql.UUID]*Client
+	Forward chan []byte
+	Join    chan *Client
+	Leave   chan *Client
+
+Example: 
+
+hub.Client = {                        // client_id -> connection id map
+  1: {                                // Connection id -> client map
+    random_conn_id_1: CLIENT OBJECT 1,
+    random_conn_id_2: CLIENT OBJECT 1,
+    random_conn_id_3: CLIENT OBJECT 1,
+    random_conn_id_4: CLIENT OBJECT 1,
+  },
+  2: {
+    random_conn_id_5: CLIENT OBJECT 2,
+    random_conn_id_6: CLIENT OBJECT 2,
+    random_conn_id_7: CLIENT OBJECT 2,
+    random_conn_id_8: CLIENT OBJECT 2,
+  },
+}
+
+This helps to keep track multiple connections for a single user 
+1. When a client joins
+		hub.Clients[client.ID] = make(map[gocql.UUID]*Client) --> Create map for client ID
+  	hub.Clients[client.ID][client.ConnID] = client --> Populate the map, with connId-Client combination
+2. When a client leaves
+		delete(conns, client.ConnID) --> Delete the connection - client map using connection id 
+    delete(hub.Clients, client.ID) --> If there is no values in the client_id - connection map, remove the client_id
+    client.Conn.Close() --> Close the connection
+3. When a message is sent to the ws 
+    The message is unmarshalled and validated
+    The IncomingMessage is converted to Message struct (Helps while writing to db)
+    The con.Id of the receiver is checked for active status, if the connection is active message is sent as bytes
+
+

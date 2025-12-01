@@ -1,0 +1,15 @@
+title: Viper!
+
+gin:
+  HOST: "localhost"
+  PORT: :8080
+
+db:
+  psql_dsn: "host=localhost user=openpg password=openpgpwd dbname=orgchart port=5432 sslmode=disable TimeZone=Asia/Kolkata"
+  scylla_dsn : "127.0.0.1:9042/chat_app"
+
+jwt:
+  private: "key/private.pem"
+  public : "key/public.pem"
+  auth_exp: 2m 
+  refresh_exp: 5m
