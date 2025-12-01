@@ -1,0 +1,101 @@
+ORG CHART BUILDER 
+-----------------
+Schema:
+    
+    User Schema is used for logging in using JWT
+    - Postgres 'User' Schema {
+        u_id uint PRIMARY & UNIQUE 
+        username string 
+        email string
+        password string -> hashed password 
+    }
+
+    Role schema holds the roles defined by the user
+    - Postgres 'Role' Schema {
+        r_id uint PRIMARY & UNIQUE
+        role string
+    }
+
+    Employee schema holds the data about the employees
+    - Postgres 'Employee' Schema {
+        e_id uint PRIMARY & UNIQUE
+        first_name string 
+        last_name string 
+        role_id --Reference to a role
+        manager_id --reference to another employee
+    }
+
+EXAMPLE: 
+ROLE
+| r_id | role      |
+| ---- | --------- |
+| 1    | CEO       |
+| 2    | Manager   |
+| 3    | Team Lead |
+| 4    | Developer |
+
+EMPLOYEE
+| e_id | first_name | last_name | role_id | manager_id |
+| ---- | ---------- | --------- | ------- | ---------- |
+| 1    | John       | Doe       | 1       | NULL       |
+| 2    | Priya      | Nair      | 2       | 1          |
+| 3    | Rahul      | Mehta     | 3       | 2          |
+| 4    | Meena      | Iyer      | 4       | 3          |
+| 5    | David      | Paul      | 4       | 3          |
+
+Endpoint: /api/employees & /api/roles
+
+GIN ,GORM & Postgres: 
+  CRUD - CREATE READ UPDATE DELETE for roles and employee
+  To fetch nested JSON value, use DB.Preload("Role").Find(&employee, id)
+
+GIN - ScyllaDB :
+  User register/login 
+  Validate JWT and establish WebSocket connection 
+  WS connection data stored in Scylla DB 
+  Messages are stored 
+  Fetch messages using conversation key
+
+FOR CHAT-WEBSOCKET 
+-------------------
+Schema:
+    
+    - Connections Schema is used for maintaining connection status
+    Scylla 'connections' Schema {
+        id UUID PK 
+        client_id INT 
+        is_active BOOL
+	      connected_at TIMESTAMP
+	      disconnected_at TIMESTAMP
+    }
+
+    Messages Schema is used for maintaining conversations
+    - Scylla 'messages' Schema {
+        id UUID PK
+	      conversation_key TEXT NOT NULL 
+        sender_id INT NOT NULL
+	      receiver_id INT NOT NULL
+	      content TEXT
+	      sent_at TIMESTAMP
+	      read_at TIMESTAMP
+	      INDEX (conversation_key, sent_at)
+    }
+
+The Hub:
+    
+    Client struct is used to maintain client - connection
+    - Client {
+        ID      uint
+	      ConnID  gocql.UUID
+	      Conn    *websocket.Conn
+	      Receive chan []byte
+	      Hub     *Hub
+    }
+
+    Hub struct is used to keep track of multiple connections of clients
+    - Hub {
+        Clients map[uint]map[gocql.UUID]*Client
+	      Forward chan []byte
+	      Join    chan *Client
+	      Leave   chan *Client
+    }
