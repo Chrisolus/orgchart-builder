@@ -14,7 +14,7 @@ type Message struct {
 	ReceiverId      uint       `json:"receiver_id"`
 	Content         string     `json:"content"`
 	SentAt          time.Time  `json:"sent_at"`
-	ReadAt          bool       `json:"read_at"`
+	ReadAt          time.Time  `json:"read_at"`
 }
 
 type IncomingMessage struct {

@@ -79,40 +79,49 @@ GIN - ScyllaDB :
 
 FOR CHAT-WEBSOCKET 
 -------------------
+Schema:
+    
+    - Connections Schema is used for maintaining connection status
+    Scylla 'connections' Schema {
+        id UUID PK 
+        client_id INT 
+        is_active BOOL
+	connected_at TIMESTAMP
+	disconnected_at TIMESTAMP
+    }
 
-CONNECTION 
-  id UUID PK
-  client_id INT
-  is_active BOOL
-  connected_at TIMESTAMP
-  disconnected_at TIMESTAMP
+    - Messages Schema is used for maintaining conversations
+    -Scylla 'messages' Schema {
+        id UUID PK
+	conversation_key TEXT NOT NULL 
+        sender_id INT NOT NULL
+	receiver_id INT NOT NULL
+	content TEXT
+	sent_at TIMESTAMP
+	read_at TIMESTAMP
+	INDEX (conversation_key, sent_at)
+    }
 
-MESSAGE
-  id UUID PK
-  conversation_key TEXT NOT NULL 
-  sender_id INT NOT NULL
-  receiver_id INT NOT NULL
-  content TEXT
-  sent_at TIMESTAMP
-  read_at TIMESTAMP
-  INDEX (conversation_key, sent_at)
-
-The Hub
----------
-CLIENT 
-  ID      uint
+The Hub:
+    
+    - Client struct is used to maintain client - connection
+    Client {
+        ID      uint
 	ConnID  gocql.UUID
 	Conn    *websocket.Conn
 	Receive chan []byte
 	Hub     *Hub
+    }
 
-HUB 
-  Clients map[uint]map[gocql.UUID]*Client
+    - Hub struct is used to keep track of multiple connections of clients
+    -Hub {
+        Clients map[uint]map[gocql.UUID]*Client
 	Forward chan []byte
 	Join    chan *Client
 	Leave   chan *Client
+    }
 
-Example: 
+EXAMPLE: 
 
 hub.Client = {                        // client_id -> connection id map
   1: {                                // Connection id -> client map
@@ -128,18 +137,5 @@ hub.Client = {                        // client_id -> connection id map
     random_conn_id_8: CLIENT OBJECT 2,
   },
 }
-
-This helps to keep track multiple connections for a single user 
-1. When a client joins
-		hub.Clients[client.ID] = make(map[gocql.UUID]*Client) --> Create map for client ID
-  	hub.Clients[client.ID][client.ConnID] = client --> Populate the map, with connId-Client combination
-2. When a client leaves
-		delete(conns, client.ConnID) --> Delete the connection - client map using connection id 
-    delete(hub.Clients, client.ID) --> If there is no values in the client_id - connection map, remove the client_id
-    client.Conn.Close() --> Close the connection
-3. When a message is sent to the ws 
-    The message is unmarshalled and validated
-    The IncomingMessage is converted to Message struct (Helps while writing to db)
-    The con.Id of the receiver is checked for active status, if the connection is active message is sent as bytes
 
 

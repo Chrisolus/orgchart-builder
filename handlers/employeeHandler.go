@@ -12,7 +12,7 @@ import (
 
 func GetEmployeeSummary(c *gin.Context) {
 	if summaries, err := psql.FetchEmployeeList(); err != nil {
-		c.JSON(http.StatusOK, gin.H{"employees": nil, "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"employees": nil, "error": err.Error()})
 	} else {
 		c.JSON(http.StatusOK, gin.H{"employees": summaries, "error": nil})
 	}

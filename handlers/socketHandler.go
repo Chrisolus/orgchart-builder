@@ -31,7 +31,3 @@ func WebSocketHandler(c *gin.Context) {
 	go client.Write()
 	go client.Read()
 }
-
-func GetConversation(c *gin.Context) {
-	// receive conversation_key in parameters and fetchMessages
-}
